@@ -1,0 +1,5 @@
+# Bu kod, Python'ın standart kütüphanelerini kullandığından harici bir paket gerektirmez.
+# Bu nedenle, requirements.txt dosyası boş bırakılmıştır.
+
+This code uses Python's standard libraries and does not require any external packages.
+Therefore, the requirements.txt file has been left empty.
