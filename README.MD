@@ -18,3 +18,7 @@ Generates random proxy IPs with customizable quantity and proxy type selection. 
 - Python 3.6 or higher  
 - Tkinter (usually included with Python)  
 - requests (for potential future proxy verification features)
+
+git clone https://github.com/baranbabey33-stack/free-proxy-generator.git
+cd free-proxy-generator
+
