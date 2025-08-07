@@ -1,107 +1,105 @@
 import tkinter as tk
 from tkinter import ttk
 import threading
-import random
-import time
-import os
+import requests
 
-def generate_proxies(proxy_type, amount):
-    proxies = []
-    for _ in range(amount):
-        ip = ".".join(str(random.randint(1, 255)) for _ in range(4))
-        port = random.randint(1000, 9999)
-        proxies.append(f"{proxy_type}://{ip}:{port}")
-    return proxies
+proxy_counters = {
+    "http": 0,
+    "https": 0,
+    "socks4": 0,
+    "socks5": 0
+}
 
-def save_proxies_to_file(proxies, filename="proxies.txt"):
+country_codes = {
+    "Tümü (Varsayılan)": "",
+    "Türkiye": "TR",
+    "ABD": "US",
+    "Almanya": "DE",
+    "Fransa": "FR",
+    "Hollanda": "NL",
+    "İngiltere": "GB",
+    "Rusya": "RU",
+    "Japonya": "JP",
+    "Kanada": "CA",
+    "Avustralya": "AU"
+}
+
+def fetch_real_proxies(proxy_type, country_code):
+    url = f"https://api.proxyscrape.com/v4/free-proxy-list/get?request=displayproxies&proxy_format=ipport&format=text&protocol={proxy_type}"
+    if country_code:
+        url += f"&country={country_code}"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        proxies = response.text.strip().split('\n')
+        return [proxy.strip() for proxy in proxies if proxy.strip()]
+    except:
+        return []
+
+def save_proxies(proxy_type, proxies):
+    proxy_counters[proxy_type] += 1
+    filename = f"{proxy_type}_proxy_{proxy_counters[proxy_type]}.txt"
     with open(filename, "w") as f:
         for proxy in proxies:
             f.write(proxy + "\n")
+    return filename
 
 class ProxyApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Proxy Generator")
-        self.root.geometry("500x450")
+        self.root.geometry("500x430")
+        self.root.configure(bg="#0f1117")
 
-        self.language_options = {"Türkçe": self.set_tr, "English": self.set_en}
-        self.current_lang = "tr"
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("TLabel", background="#0f1117", foreground="#ffffff", font=("Segoe UI", 11))
+        style.configure("TButton", background="#1f6feb", foreground="#ffffff", font=("Segoe UI", 11), padding=6)
+        style.map("TButton", background=[("active", "#2e8bff")])
+        style.configure("TEntry", padding=5)
+        style.configure("TCombobox", padding=5)
 
-        self.amount_label = ttk.Label(root, text="Proxy Sayısı:")
-        self.amount_label.pack(pady=5)
-        self.amount_entry = ttk.Entry(root)
-        self.amount_entry.pack(pady=5)
-        self.amount_entry.insert(0, "1000")
+        ttk.Label(root, text="Proxy Generator", font=("Segoe UI", 16, "bold")).pack(pady=10)
 
-        self.proxy_type_label = ttk.Label(root, text="Proxy Türü:")
-        self.proxy_type_label.pack(pady=5)
+        ttk.Label(root, text="Proxy Türü:").pack()
         self.proxy_type = ttk.Combobox(root, values=["http", "https", "socks4", "socks5"], state="readonly")
-        self.proxy_type.pack(pady=5)
+        self.proxy_type.pack()
         self.proxy_type.current(0)
 
-        self.timeout_label = ttk.Label(root, text="Zaman Aşımı (sn):")
-        self.timeout_label.pack(pady=5)
-        self.timeout_entry = ttk.Entry(root)
-        self.timeout_entry.pack(pady=5)
-        self.timeout_entry.insert(0, "5")
+        ttk.Label(root, text="Proxy Sayısı:").pack()
+        self.count_entry = ttk.Entry(root)
+        self.count_entry.pack()
+        self.count_entry.insert(0, "100")
 
-        self.filename_label = ttk.Label(root, text="Dosya Adı:")
-        self.filename_label.pack(pady=5)
-        self.filename_entry = ttk.Entry(root)
-        self.filename_entry.insert(0, "proxies.txt")
-        self.filename_entry.pack(pady=5)
+        ttk.Label(root, text="Ülke Seçimi:").pack()
+        self.country_combo = ttk.Combobox(root, values=list(country_codes.keys()), state="readonly")
+        self.country_combo.pack()
+        self.country_combo.set("Tümü (Varsayılan)")
 
-        self.generate_button = ttk.Button(root, text="Proxy Başlat", command=self.start_generation)
-        self.generate_button.pack(pady=15)
+        ttk.Button(root, text="Proxy Oluştur", command=self.start_generation).pack(pady=15)
 
-        self.lang_label = ttk.Label(root, text="Dil Seçimi:")
-        self.lang_label.pack(pady=5)
-        self.lang_menu = ttk.Combobox(root, values=list(self.language_options.keys()), state="readonly")
-        self.lang_menu.pack(pady=5)
-        self.lang_menu.set("Türkçe")
-        self.lang_menu.bind("<<ComboboxSelected>>", self.change_language)
-
-        self.status_label = ttk.Label(root, text="Durum: Bekleniyor", wraplength=400)
+        self.status_label = ttk.Label(root, text="Durum: Bekleniyor", font=("Segoe UI", 10))
         self.status_label.pack(pady=10)
-
-    def set_tr(self):
-        self.amount_label.config(text="Proxy Sayısı:")
-        self.proxy_type_label.config(text="Proxy Türü:")
-        self.timeout_label.config(text="Zaman Aşımı (sn):")
-        self.filename_label.config(text="Dosya Adı:")
-        self.generate_button.config(text="Proxy Başlat")
-        self.lang_label.config(text="Dil Seçimi:")
-        self.status_label.config(text="Durum: Bekleniyor")
-
-    def set_en(self):
-        self.amount_label.config(text="Proxy Count:")
-        self.proxy_type_label.config(text="Proxy Type:")
-        self.timeout_label.config(text="Timeout (sec):")
-        self.filename_label.config(text="File Name:")
-        self.generate_button.config(text="Start Proxy")
-        self.lang_label.config(text="Language:")
-        self.status_label.config(text="Status: Waiting")
-
-    def change_language(self, event):
-        lang = self.lang_menu.get()
-        if lang in self.language_options:
-            self.language_options[lang]()
 
     def start_generation(self):
         try:
-            amount = int(self.amount_entry.get())
-            timeout = int(self.timeout_entry.get())
+            count = int(self.count_entry.get())
             proxy_type = self.proxy_type.get()
-            filename = self.filename_entry.get()
-            self.status_label.config(text=f"Durum: {amount} proxy oluşturuluyor...")
-            threading.Thread(target=self.run_generation, args=(proxy_type, amount, filename), daemon=True).start()
-        except ValueError:
-            self.status_label.config(text="Hata: Geçerli sayı girin!")
+            country_name = self.country_combo.get()
+            country_code = country_codes.get(country_name, "")
+            self.status_label.config(text=f"{proxy_type} proxy alınıyor...")
+            threading.Thread(target=self.generate_proxies, args=(proxy_type, count, country_code), daemon=True).start()
+        except:
+            self.status_label.config(text="Geçerli sayı girin.")
 
-    def run_generation(self, proxy_type, amount, filename):
-        proxies = generate_proxies(proxy_type, amount)
-        save_proxies_to_file(proxies, filename)
-        self.status_label.config(text=f"{len(proxies)} proxy oluşturuldu ve '{filename}' dosyasına kaydedildi.")
+    def generate_proxies(self, proxy_type, count, country_code):
+        proxies = fetch_real_proxies(proxy_type, country_code)
+        if proxies:
+            selected = proxies[:count]
+            filename = save_proxies(proxy_type, selected)
+            self.status_label.config(text=f"{len(selected)} proxy kaydedildi → {filename}")
+        else:
+            self.status_label.config(text="Proxy alınamadı.")
 
 if __name__ == "__main__":
     root = tk.Tk()
